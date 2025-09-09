@@ -9,7 +9,24 @@ def generate_docx(material, L, diameter, moment, angle, G_basic, G_eff,
     Если передан experiment_results — вставляет параметры эксперимента.
     """
     doc = Document()
-    doc.add_heading("Отчёт по экспериментальному определению прочности при кручении", 0)
+    doc.add_heading("Лабораторная работа №4", 0)
+    doc.add_heading("Определение модуля упругости второго рода при кручении стали, чугуна, дерева", level=1)
+    
+    # Информация о студенте
+    doc.add_paragraph("")
+    student_info = doc.add_paragraph()
+    student_info.add_run("Выполнил: ").bold = True
+    student_info.add_run("Коваленко Кирилл, Артем Иокерс")
+    group_info = doc.add_paragraph()
+    group_info.add_run("Группа: ").bold = True
+    group_info.add_run("ИН-31")
+    
+    from datetime import datetime
+    date_info = doc.add_paragraph()
+    date_info.add_run("Дата выполнения: ").bold = True
+    date_info.add_run(datetime.now().strftime("%d.%m.%Y"))
+    
+    doc.add_paragraph("")
 
     doc.add_heading("Исходные данные", level=1)
     doc.add_paragraph(f"Материал: {material}")

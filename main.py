@@ -7,7 +7,6 @@ from calculator import calculate_basic_G, analyze_experiment  # и другие 
 from graph import plot_torsion_curve, save_torsion_curve, plot_experiment_graph
 from report_docx import generate_docx
 from db_manager import init_db, insert_result, get_results
-from animation import TorsionAnimation
 
 material_properties = {
     "Сталь": {"k": 1.0, "elastic_limit": 15, "failure_angle": 30},
@@ -241,6 +240,68 @@ class TorsionApp:
             messagebox.showwarning("Отчёт", "Сначала выполните расчёт.")
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = TorsionApp(root)
-    root.mainloop()
+    import sys
+    import os
+    
+    print("=" * 80)
+    print("ЛАБОРАТОРНАЯ РАБОТА №4")
+    print("Определение модуля упругости второго рода при кручении")
+    print("стали, чугуна, дерева")
+    print()
+    print("Авторы: Коваленко Кирилл, Артем Иокерс")
+    print("Группа: ИН-31")
+    print("=" * 80)
+    print()
+    
+    # Проверка аргументов командной строки
+    if len(sys.argv) > 1 and sys.argv[1] == '--gui':
+        print("Запуск в режиме GUI (Tkinter)...")
+        root = tk.Tk()
+        app = TorsionApp(root)
+        root.mainloop()
+    else:
+        print("Выберите режим запуска:")
+        print("1. Веб-приложение (рекомендуется)")
+        print("2. GUI приложение (Tkinter)")
+        print()
+        
+        try:
+            choice = input("Введите номер (1 или 2) или нажмите Enter для веб-режима: ").strip()
+            
+            if choice == '2':
+                print("\nЗапуск GUI приложения...")
+                root = tk.Tk()
+                app = TorsionApp(root)
+                root.mainloop()
+            else:
+                print("\nЗапуск веб-приложения...")
+                print("Проверка зависимостей...")
+                
+                # Проверка наличия Flask
+                try:
+                    import flask
+                    print("✓ Flask найден")
+                except ImportError:
+                    print("✗ Flask не найден. Установите зависимости:")
+                    print("  pip install -r requirements.txt")
+                    sys.exit(1)
+                
+                # Запуск веб-приложения
+                from web_app import app as web_app
+                try:
+                    web_app.run(debug=False, host='0.0.0.0', port=8080, threaded=True)
+                except OSError as e:
+                    if "Address already in use" in str(e):
+                        print(f"\nПорт 8080 уже используется. Пробую порт 8081...")
+                        web_app.run(debug=False, host='0.0.0.0', port=8081, threaded=True)
+                    else:
+                        raise e
+                
+        except KeyboardInterrupt:
+            print("\nПрограмма завершена пользователем.")
+        except Exception as e:
+            print(f"\nОшибка: {e}")
+            print("Запуск GUI по умолчанию...")
+            root = tk.Tk()
+            app = TorsionApp(root)
+            root.mainloop()

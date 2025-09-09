@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Лабораторная работа №4 - Кручение</title>
+    <link rel="stylesheet" href="/static/animation_styles.css" />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+
+      .header {
+        background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+        color: white;
+        padding: 30px;
+        text-align: center;
+      }
+
+      .header h1 {
+        font-size: 2.2em;
+        margin-bottom: 10px;
+        font-weight: 300;
+      }
+
+      .header .subtitle {
+        font-size: 1.1em;
+        opacity: 0.9;
+        margin-bottom: 10px;
+      }
+
+      .student-info {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 10px 20px;
+        border-radius: 25px;
+        display: inline-block;
+        font-weight: 500;
+      }
+
+      .tabs {
+        display: flex;
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+      }
+
+      .tab {
+        flex: 1;
+        padding: 15px 20px;
+        background: #f8f9fa;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 500;
+        transition: all 0.3s;
+        border-bottom: 3px solid transparent;
+      }
+
+      .tab.active {
+        background: white;
+        border-bottom: 3px solid #3498db;
+        color: #3498db;
+      }
+
+      .tab:hover {
+        background: #e9ecef;
+      }
+
+      .tab-content {
+        display: none;
+        padding: 30px;
+      }
+
+      .tab-content.active {
+        display: block;
+      }
+
+      .form-group {
+        margin-bottom: 20px;
+      }
+
+      .form-row {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+      }
+
+      .form-col {
+        flex: 1;
+        min-width: 250px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #2c3e50;
+      }
+
+      input,
+      select {
+        width: 100%;
+        padding: 12px 15px;
+        border: 2px solid #e1e5e9;
+        border-radius: 8px;
+        font-size: 16px;
+        transition: border-color 0.3s;
+      }
+
+      input:focus,
+      select:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+      }
+
+      .btn {
+        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        margin-right: 10px;
+        margin-bottom: 10px;
+      }
+
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+      }
+
+      .btn-secondary {
+        background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+      }
+
+      .btn-success {
+        background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+      }
+
+      .result-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 10px;
+        padding: 25px;
+        margin-top: 20px;
+        border-left: 5px solid #3498db;
+      }
+
+      .result-value {
+        font-size: 1.5em;
+        font-weight: bold;
+        color: #2c3e50;
+        margin: 10px 0;
+      }
+
+      .graph-container {
+        text-align: center;
+        margin-top: 30px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 10px;
+      }
+
+      .graph-container img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      .alert {
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        font-weight: 500;
+      }
+
+      .alert-warning {
+        background: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+      }
+
+      .alert-error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+
+      .alert-success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+
+      .database-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      .database-table th {
+        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        color: white;
+        padding: 15px 10px;
+        text-align: left;
+        font-weight: 600;
+      }
+
+      .database-table td {
+        padding: 12px 10px;
+        border-bottom: 1px solid #e9ecef;
+      }
+
+      .database-table tr:hover {
+        background: #f8f9fa;
+      }
+
+      .explanation {
+        background: linear-gradient(135deg, #e8f4f8 0%, #d6eaf8 100%);
+        border-radius: 10px;
+        padding: 25px;
+        margin-top: 20px;
+        border-left: 5px solid #3498db;
+      }
+
+      .explanation h3 {
+        color: #2c3e50;
+        margin-bottom: 15px;
+        font-size: 1.3em;
+      }
+
+      .explanation p {
+        line-height: 1.6;
+        color: #34495e;
+        margin-bottom: 10px;
+      }
+
+      .loading {
+        text-align: center;
+        padding: 20px;
+        color: #7f8c8d;
+      }
+
+      .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 20px auto;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .experiment-data {
+        margin-top: 20px;
+      }
+
+      .data-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+        align-items: center;
+      }
+
+      .data-row input {
+        flex: 1;
+      }
+
+      .remove-btn {
+        background: #e74c3c;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 35px;
+        height: 35px;
+        cursor: pointer;
+        font-size: 18px;
+      }
+
+      @media (max-width: 768px) {
+        .form-row {
+          flex-direction: column;
+        }
+
+        .tabs {
+          flex-direction: column;
+        }
+
+        .database-table {
+          font-size: 14px;
+        }
+
+        .database-table th,
+        .database-table td {
+          padding: 8px 5px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>Лабораторная работа №4</h1>
+        <div class="subtitle">
+          Определение модуля упругости второго рода при кручении стали, чугуна,
+          дерева
+        </div>
+        <div class="student-info">{{ student_info }}</div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" onclick="showTab('calculation')">
+          Расчет
+        </button>
+        <button class="tab" onclick="showTab('experiment')">Эксперимент</button>
+        <button class="tab" onclick="showTab('database')">База данных</button>
+        <button class="tab" onclick="showTab('theory')">Теория</button>
+      </div>
+
+      <!-- Вкладка расчета -->
+      <div id="calculation" class="tab-content active">
+        <form id="calculationForm">
+          <div class="form-row">
+            <div class="form-col">
+              <div class="form-group">
+                <label for="material">Материал:</label>
+                <select id="material" name="material" required>
+                  {% for material in materials %}
+                  <option value="{{ material }}">{{ material }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="length">Длина образца (мм):</label>
+                <input
+                  type="number"
+                  id="length"
+                  name="length"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="100"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="diameter">Диаметр (мм):</label>
+                <input
+                  type="number"
+                  id="diameter"
+                  name="diameter"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="10"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="form-col">
+              <div class="form-group">
+                <label for="moment">Крутящий момент (Н·мм):</label>
+                <input
+                  type="number"
+                  id="moment"
+                  name="moment"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="1000"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="angle">Угол поворота (°):</label>
+                <input
+                  type="number"
+                  id="angle"
+                  name="angle"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="10"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <button type="submit" class="btn">Рассчитать</button>
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  onclick="resetForm()"
+                >
+                  Сброс
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+
+        <!-- Анимация процесса кручения -->
+        <div
+          id="torsionAnimationContainer"
+          class="animation-container"
+          style="display: none"
+        >
+          <div class="animation-title">Процесс кручения образца</div>
+
+          <div class="progress-steps">
+            <div class="progress-step" id="step1">Подготовка</div>
+            <div class="progress-step" id="step2">Нагружение</div>
+            <div class="progress-step" id="step3">Деформация</div>
+            <div class="progress-step" id="step4">Расчет</div>
+          </div>
+
+          <div id="animationCanvas"></div>
+
+          <div class="calculation-progress" id="calculationProgress">
+            <div class="loading-spinner"></div>
+            <span id="progressText"
+              >Выполняется расчет модуля упругости...</span
+            >
+          </div>
+        </div>
+
+        <div id="calculationResult"></div>
+        <div id="graphContainer"></div>
+      </div>
+
+      <!-- Вкладка эксперимента -->
+      <div id="experiment" class="tab-content">
+        <h3>Анализ экспериментальных данных</h3>
+        <p>
+          Введите экспериментальные данные в формате: Момент (Н·мм) и Угол (°)
+        </p>
+
+        <div class="form-row">
+          <div class="form-col">
+            <div class="form-group">
+              <label for="exp_length">Длина образца (мм):</label>
+              <input
+                type="number"
+                id="exp_length"
+                step="0.01"
+                min="0.01"
+                value="100"
+                required
+              />
+            </div>
+          </div>
+          <div class="form-col">
+            <div class="form-group">
+              <label for="exp_diameter">Диаметр (мм):</label>
+              <input
+                type="number"
+                id="exp_diameter"
+                step="0.01"
+                min="0.01"
+                value="10"
+                required
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="experiment-data">
+          <h4>Экспериментальные точки:</h4>
+          <div id="dataPoints">
+            <div class="data-row">
+              <input
+                type="number"
+                placeholder="Момент (Н·мм)"
+                step="0.01"
+                class="moment-input"
+              />
+              <input
+                type="number"
+                placeholder="Угол (°)"
+                step="0.01"
+                class="angle-input"
+              />
+              <button
+                type="button"
+                class="remove-btn"
+                onclick="removeDataPoint(this)"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            onclick="addDataPoint()"
+          >
+            Добавить точку
+          </button>
+          <button type="button" class="btn" onclick="analyzeExperiment()">
+            Анализировать
+          </button>
+        </div>
+
+        <div id="experimentResult"></div>
+      </div>
+
+      <!-- Вкладка базы данных -->
+      <div id="database" class="tab-content">
+        <h3>Сохраненные результаты</h3>
+        <button class="btn btn-secondary" onclick="loadDatabase()">
+          Обновить
+        </button>
+        <div id="databaseContent">
+          <div class="loading">
+            <div class="spinner"></div>
+            Загрузка данных...
+          </div>
+        </div>
+      </div>
+
+      <!-- Вкладка теории -->
+      <div id="theory" class="tab-content">
+        <div class="explanation">
+          <h3>Теоретические основы</h3>
+          <p>
+            <strong>Модуль упругости второго рода (модуль сдвига) G</strong>
+            характеризует способность материала сопротивляться деформации сдвига
+            при кручении.
+          </p>
+
+          <h4>Основная формула:</h4>
+          <p><strong>G = (M × L) / (J × θ)</strong></p>
+          <p>где:</p>
+          <ul style="margin-left: 20px; margin-top: 10px">
+            <li>M - крутящий момент (Н·мм)</li>
+            <li>L - длина образца (мм)</li>
+            <li>J - полярный момент инерции, J = (π × d⁴)/32 (мм⁴)</li>
+            <li>θ - угол поворота (радианы)</li>
+          </ul>
+
+          <h4>Учет свойств материала:</h4>
+          <p><strong>G_эфф = k × G</strong>, где k - коэффициент материала:</p>
+          <ul style="margin-left: 20px; margin-top: 10px">
+            <li>Сталь: k = 1.0</li>
+            <li>Чугун: k = 0.95</li>
+            <li>Дерево: k = 0.80</li>
+          </ul>
+
+          <h4>Области деформации:</h4>
+          <p><strong>Упругая область:</strong> θ ≤ θ_пред (предел упругости)</p>
+          <p>
+            <strong>Пластическая область:</strong> θ_пред < θ < θ_разр (угол
+            разрушения)
+          </p>
+          <p>
+            В пластической области модуль упругости линейно снижается до нуля.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let lastCalculationData = null;
+
+      function showTab(tabName) {
+        // Скрыть все вкладки
+        const tabs = document.querySelectorAll(".tab-content");
+        tabs.forEach((tab) => tab.classList.remove("active"));
+
+        const tabButtons = document.querySelectorAll(".tab");
+        tabButtons.forEach((btn) => btn.classList.remove("active"));
+
+        // Показать выбранную вкладку
+        document.getElementById(tabName).classList.add("active");
+        event.target.classList.add("active");
+
+        // Загрузить данные для вкладки базы данных
+        if (tabName === "database") {
+          loadDatabase();
+        }
+      }
+
+      function resetForm() {
+        document.getElementById("calculationForm").reset();
+        document.getElementById("calculationResult").innerHTML = "";
+        document.getElementById("graphContainer").innerHTML = "";
+        hideCalculationAnimation();
+      }
+
+      function showCalculationAnimation(data) {
+        const container = document.getElementById("torsionAnimationContainer");
+        const progress = document.getElementById("calculationProgress");
+
+        // Показать контейнер анимации
+        container.style.display = "block";
+        progress.classList.add("active");
+
+        // Установить класс материала для стилизации
+        container.className = `animation-container material-${data.material.toLowerCase()}`;
+
+        // Запустить анимацию кручения
+        if (window.torsionAnimator) {
+          startTorsionAnimation(data);
+        }
+
+        // Сбросить прогресс
+        resetProgressSteps();
+      }
+
+      function stopCalculationAnimation(result = null) {
+        const container = document.getElementById("torsionAnimationContainer");
+        const progress = document.getElementById("calculationProgress");
+
+        progress.classList.remove("active");
+
+        // Остановить анимацию с передачей результатов
+        if (window.torsionAnimator && result) {
+          const finalData = {
+            material: result.material,
+            moment: parseFloat(document.getElementById("moment").value),
+            angle: result.effective_angle,
+            G_eff: result.G_eff,
+          };
+          stopTorsionAnimation(finalData);
+        } else if (window.torsionAnimator) {
+          stopTorsionAnimation();
+        }
+
+        // Завершить все этапы
+        completeAllSteps();
+
+        // Показать результат в анимации
+        if (result && result.success) {
+          showAnimationResult(result);
+        }
+
+        // НЕ скрывать анимацию - оставить видимой с результатами
+      }
+
+      function hideCalculationAnimation() {
+        const container = document.getElementById("torsionAnimationContainer");
+        const progress = document.getElementById("calculationProgress");
+        const resultPanel = document.getElementById("animationResultPanel");
+
+        container.style.display = "none";
+        progress.classList.remove("active");
+        resetProgressSteps();
+
+        // Удалить панель результатов
+        if (resultPanel) {
+          resultPanel.remove();
+        }
+
+        // Остановить анимацию
+        if (window.torsionAnimator) {
+          stopTorsionAnimation();
+        }
+      }
+
+      async function simulateCalculationSteps() {
+        const steps = ["step1", "step2", "step3", "step4"];
+        const stepTexts = [
+          "Подготовка образца...",
+          "Приложение крутящего момента...",
+          "Измерение деформации...",
+          "Вычисление модуля упругости...",
+        ];
+
+        for (let i = 0; i < steps.length; i++) {
+          // Активировать текущий этап
+          document.getElementById(steps[i]).classList.add("active");
+          document.getElementById("progressText").textContent = stepTexts[i];
+
+          // Задержка для реалистичности
+          await new Promise((resolve) => setTimeout(resolve, 600));
+
+          // Завершить этап
+          document.getElementById(steps[i]).classList.remove("active");
+          document.getElementById(steps[i]).classList.add("completed");
+        }
+      }
+
+      function resetProgressSteps() {
+        const steps = document.querySelectorAll(".progress-step");
+        steps.forEach((step) => {
+          step.classList.remove("active", "completed");
+        });
+      }
+
+      function completeAllSteps() {
+        const steps = document.querySelectorAll(".progress-step");
+        steps.forEach((step) => {
+          step.classList.remove("active");
+          step.classList.add("completed");
+        });
+        document.getElementById("progressText").textContent =
+          "Расчет завершен!";
+      }
+
+      function showAnimationResult(result) {
+        // Обновить анимацию с реальными результатами
+        if (window.torsionAnimator) {
+          // Установить финальный угол равный эффективному углу
+          const finalData = {
+            material: result.material,
+            moment: parseFloat(document.getElementById("moment").value),
+            angle: result.effective_angle,
+            G_eff: result.G_eff,
+          };
+
+          // Перезапустить анимацию с реальными данными
+          startTorsionAnimation(finalData);
+        }
+
+        // Создать панель результатов в анимации
+        const animationContainer = document.getElementById(
+          "torsionAnimationContainer"
+        );
+        let resultPanel = document.getElementById("animationResultPanel");
+
+        if (!resultPanel) {
+          resultPanel = document.createElement("div");
+          resultPanel.id = "animationResultPanel";
+          resultPanel.className =
+            "calculation-result-preview animation-result-panel";
+          animationContainer.appendChild(resultPanel);
+        }
+
+        resultPanel.innerHTML = `
+           <div style="text-align: center;">
+             <h3 style="color: #27ae60; margin-bottom: 15px;">📊 Результаты расчета</h3>
+             <div class="result-row" style="display: flex; justify-content: space-between; margin: 10px 0; padding: 10px; background: rgba(52, 152, 219, 0.1); border-radius: 8px;">
+               <span><strong>Материал:</strong></span>
+               <span class="material-indicator material-${result.material.toLowerCase()}">${
+          result.material
+        }</span>
+             </div>
+             <div class="result-row" style="display: flex; justify-content: space-between; margin: 10px 0; padding: 10px; background: rgba(52, 152, 219, 0.1); border-radius: 8px;">
+               <span><strong>Эффективный модуль:</strong></span>
+               <span class="result-value" style="font-size: 18px; color: #27ae60;">${
+                 result.G_eff
+               } <span class="result-unit">МПа</span></span>
+             </div>
+             <div class="result-row" style="display: flex; justify-content: space-between; margin: 10px 0; padding: 10px; background: rgba(52, 152, 219, 0.1); border-radius: 8px;">
+               <span><strong>Базовый модуль:</strong></span>
+               <span>${result.G_baseline} МПа</span>
+             </div>
+             <div class="result-row" style="display: flex; justify-content: space-between; margin: 10px 0; padding: 10px; background: rgba(52, 152, 219, 0.1); border-radius: 8px;">
+               <span><strong>Эффективный угол:</strong></span>
+               <span>${result.effective_angle}°</span>
+             </div>
+             ${
+               result.warning
+                 ? `<div class="alert-warning" style="margin-top: 15px; padding: 10px; background: #fff3cd; color: #856404; border-radius: 8px; font-size: 12px;">${result.warning}</div>`
+                 : ""
+             }
+             <button onclick="hideCalculationAnimation()" class="btn btn-secondary" style="margin-top: 15px;">Скрыть анимацию</button>
+           </div>
+         `;
+
+        resultPanel.classList.add("show");
+
+        // Обновить текст прогресса
+        document.getElementById("progressText").innerHTML = `
+           <span style="color: #27ae60; font-weight: bold;">✅ Модуль упругости рассчитан: ${result.G_eff} МПа</span>
+         `;
+      }
+
+      document
+        .getElementById("calculationForm")
+        .addEventListener("submit", async function (e) {
+          e.preventDefault();
+
+          const formData = new FormData(e.target);
+          const data = {
+            material: formData.get("material"),
+            length: parseFloat(formData.get("length")),
+            diameter: parseFloat(formData.get("diameter")),
+            moment: parseFloat(formData.get("moment")),
+            angle: parseFloat(formData.get("angle")),
+          };
+
+          try {
+            // Показать анимацию
+            showCalculationAnimation(data);
+
+            // Симуляция этапов расчета
+            await simulateCalculationSteps();
+
+            const response = await fetch("/api/calculate", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(data),
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+              lastCalculationData = { ...data, ...result };
+
+              // Остановить анимацию с результатами
+              stopCalculationAnimation(result);
+
+              // Показать основные результаты
+              displayCalculationResult(result);
+            } else {
+              // Остановить анимацию без результатов
+              stopCalculationAnimation();
+              document.getElementById(
+                "calculationResult"
+              ).innerHTML = `<div class="alert alert-error">Ошибка: ${result.error}</div>`;
+            }
+          } catch (error) {
+            stopCalculationAnimation();
+            document.getElementById(
+              "calculationResult"
+            ).innerHTML = `<div class="alert alert-error">Ошибка сети: ${error.message}</div>`;
+          }
+        });
+
+      function displayCalculationResult(result) {
+        let html = "";
+
+        if (result.warning) {
+          html += `<div class="alert alert-warning">${result.warning}</div>`;
+        }
+
+        html += `
+                <div class="result-card">
+                    <h3>Результаты расчета</h3>
+                    <div class="result-value">Эффективный модуль упругости: ${result.G_eff} МПа</div>
+                    <p><strong>Базовый модуль:</strong> ${result.G_baseline} МПа</p>
+                    <p><strong>Эффективный угол:</strong> ${result.effective_angle}°</p>
+                    <p><strong>Материал:</strong> ${result.material}</p>
+                    <p><strong>Предел эластичности:</strong> ${result.elastic_limit}°</p>
+                    <p><strong>Угол разрушения:</strong> ${result.failure_angle}°</p>
+                    
+                    <button class="btn btn-success" onclick="generateReport()">Скачать отчет</button>
+                </div>
+            `;
+
+        document.getElementById("calculationResult").innerHTML = html;
+
+        // Отображение графика
+        if (result.graph) {
+          document.getElementById(
+            "graphContainer"
+          ).innerHTML = `<div class="graph-container">
+                        <h3>График зависимости модуля упругости от угла поворота</h3>
+                        <img src="data:image/png;base64,${result.graph}" alt="График зависимости">
+                    </div>`;
+        }
+      }
+
+      async function generateReport() {
+        if (!lastCalculationData) {
+          alert("Сначала выполните расчет");
+          return;
+        }
+
+        try {
+          const response = await fetch("/api/report", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(lastCalculationData),
+          });
+
+          if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.style.display = "none";
+            a.href = url;
+            a.download = `torsion_report_${new Date()
+              .toISOString()
+              .slice(0, 10)}.docx`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+          } else {
+            alert("Ошибка при генерации отчета");
+          }
+        } catch (error) {
+          alert("Ошибка сети: " + error.message);
+        }
+      }
+
+      async function loadDatabase() {
+        document.getElementById("databaseContent").innerHTML =
+          '<div class="loading"><div class="spinner"></div>Загрузка данных...</div>';
+
+        try {
+          const response = await fetch("/api/database");
+          const result = await response.json();
+
+          if (result.success) {
+            displayDatabase(result.data);
+          } else {
+            document.getElementById(
+              "databaseContent"
+            ).innerHTML = `<div class="alert alert-error">Ошибка загрузки: ${result.error}</div>`;
+          }
+        } catch (error) {
+          document.getElementById(
+            "databaseContent"
+          ).innerHTML = `<div class="alert alert-error">Ошибка сети: ${error.message}</div>`;
+        }
+      }
+
+      function displayDatabase(data) {
+        if (data.length === 0) {
+          document.getElementById("databaseContent").innerHTML =
+            '<div class="alert alert-warning">Нет сохраненных результатов</div>';
+          return;
+        }
+
+        let html = `
+                <table class="database-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Материал</th>
+                            <th>L (мм)</th>
+                            <th>d (мм)</th>
+                            <th>M (Н·мм)</th>
+                            <th>θ (°)</th>
+                            <th>G (МПа)</th>
+                            <th>Время</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+        data.forEach((row) => {
+          html += `
+                    <tr>
+                        <td>${row.id}</td>
+                        <td>${row.material}</td>
+                        <td>${row.L}</td>
+                        <td>${row.diameter}</td>
+                        <td>${row.moment}</td>
+                        <td>${row.angle}</td>
+                        <td>${row.G}</td>
+                        <td>${row.timestamp}</td>
+                    </tr>
+                `;
+        });
+
+        html += "</tbody></table>";
+        document.getElementById("databaseContent").innerHTML = html;
+      }
+
+      function addDataPoint() {
+        const container = document.getElementById("dataPoints");
+        const div = document.createElement("div");
+        div.className = "data-row";
+        div.innerHTML = `
+                <input type="number" placeholder="Момент (Н·мм)" step="0.01" class="moment-input">
+                <input type="number" placeholder="Угол (°)" step="0.01" class="angle-input">
+                <button type="button" class="remove-btn" onclick="removeDataPoint(this)">×</button>
+            `;
+        container.appendChild(div);
+      }
+
+      function removeDataPoint(button) {
+        const container = document.getElementById("dataPoints");
+        if (container.children.length > 1) {
+          button.parentElement.remove();
+        }
+      }
+
+      async function analyzeExperiment() {
+        const L = parseFloat(document.getElementById("exp_length").value);
+        const diameter = parseFloat(
+          document.getElementById("exp_diameter").value
+        );
+
+        if (!L || !diameter || L <= 0 || diameter <= 0) {
+          alert("Введите корректные значения длины и диаметра");
+          return;
+        }
+
+        const momentInputs = document.querySelectorAll(".moment-input");
+        const angleInputs = document.querySelectorAll(".angle-input");
+        const data = [];
+
+        for (let i = 0; i < momentInputs.length; i++) {
+          const moment = parseFloat(momentInputs[i].value);
+          const angle = parseFloat(angleInputs[i].value);
+
+          if (moment && angle && moment > 0 && angle > 0) {
+            data.push([moment, angle]);
+          }
+        }
+
+        if (data.length < 3) {
+          alert("Необходимо минимум 3 корректные точки данных");
+          return;
+        }
+
+        try {
+          const response = await fetch("/api/experiment", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ data, L, diameter }),
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            displayExperimentResult(result.results);
+          } else {
+            document.getElementById(
+              "experimentResult"
+            ).innerHTML = `<div class="alert alert-error">Ошибка: ${result.error}</div>`;
+          }
+        } catch (error) {
+          document.getElementById(
+            "experimentResult"
+          ).innerHTML = `<div class="alert alert-error">Ошибка сети: ${error.message}</div>`;
+        }
+      }
+
+      function displayExperimentResult(results) {
+        const html = `
+                <div class="result-card">
+                    <h3>Результаты анализа эксперимента</h3>
+                    <p><strong>Модуль G (линейный участок):</strong> ${
+                      results.G_linear || "Не определен"
+                    } МПа</p>
+                    <p><strong>Предел пропорциональности (τпц):</strong> ${
+                      results.τ_pcz || "Не определен"
+                    } МПа</p>
+                    <p><strong>Предел текучести по 0.3% сдвигу:</strong> ${
+                      results.τ_0_3 || "Не определен"
+                    } МПа</p>
+                    <p><strong>Предел прочности (τmax):</strong> ${
+                      results.τ_max || "Не определен"
+                    } МПа</p>
+                    <p><strong>Максимальный относительный сдвиг (γmax):</strong> ${
+                      results.γ_max || "Не определен"
+                    }</p>
+                </div>
+            `;
+
+        document.getElementById("experimentResult").innerHTML = html;
+      }
+
+      // Загрузка базы данных при загрузке страницы
+      document.addEventListener("DOMContentLoaded", function () {
+        loadDatabase();
+        // Инициализация анимации
+        initTorsionAnimation("animationCanvas");
+      });
+    </script>
+    <script src="/static/torsion_animation.js"></script>
+  </body>
+</html>
