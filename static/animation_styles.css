@@ -267,6 +267,20 @@
   margin-left: 5px;
 }
 
+/* Пульсация для демо-режима */
+@keyframes demoPulse {
+  0%, 100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.demo-mode-text {
+  animation: demoPulse 2s ease-in-out infinite;
+}
+
 /* Адаптивность */
 @media (max-width: 768px) {
   .animation-container {

@@ -54,7 +54,7 @@ class TorsionAnimation {
     this.infoDiv.style.margin = "10px 0";
     this.infoDiv.style.fontSize = "14px";
     this.infoDiv.style.color = "#2c3e50";
-    this.infoDiv.innerHTML = "Готов к запуску анимации";
+    this.infoDiv.innerHTML = "🔄 Демонстрация процесса кручения | Выберите материал и нажмите \"Рассчитать\"";
 
     controlsDiv.appendChild(this.infoDiv);
     this.container.appendChild(controlsDiv);
@@ -63,11 +63,47 @@ class TorsionAnimation {
   setupAnimation() {
     // Инициальная отрисовка
     this.drawFrame(0);
+    
+    // Запуск демо-анимации (постоянное вращение)
+    this.startDemoMode();
+  }
+  
+  startDemoMode() {
+    // Демо-режим: плавное вращение туда-сюда
+    let demoAngle = 0;
+    let direction = 1;
+    const maxDemoAngle = 15; // Максимальный угол в демо-режиме
+    
+    const demoAnimate = () => {
+      if (!this.isAnimating) { // Только если не идет реальная анимация
+        demoAngle += direction * 0.3;
+        
+        if (demoAngle >= maxDemoAngle) {
+          direction = -1;
+        } else if (demoAngle <= -maxDemoAngle) {
+          direction = 1;
+        }
+        
+        this.drawFrame(demoAngle);
+        this.demoFrame = requestAnimationFrame(demoAnimate);
+      }
+    };
+    
+    demoAnimate();
+  }
+  
+  stopDemoMode() {
+    if (this.demoFrame) {
+      cancelAnimationFrame(this.demoFrame);
+    }
   }
 
   start(materialData = {}) {
     if (this.isAnimating) return;
 
+    // Остановить демо-режим
+    this.stopDemoMode();
+    
     this.isAnimating = true;
     this.startTime = performance.now();
     this.materialData = materialData;
@@ -106,6 +142,12 @@ class TorsionAnimation {
       this.currentAngle = finalResult.angle;
       this.materialData = finalResult;
       this.drawFrame(this.currentAngle);
+      
+      // Через 3 секунды вернуться к демо-режиму
+      setTimeout(() => {
+        this.infoDiv.innerHTML = "Готов к следующему расчету";
+        this.startDemoMode();
+      }, 3000);
     } else {
       this.infoDiv.innerHTML = `
                 <div style="color: #2980b9; font-weight: bold;">✅ Расчет завершен</div>
@@ -113,6 +155,12 @@ class TorsionAnimation {
                     Финальный угол поворота: ${this.currentAngle.toFixed(1)}°
                 </div>
             `;
+      
+      // Через 3 секунды вернуться к демо-режиму
+      setTimeout(() => {
+        this.infoDiv.innerHTML = "Готов к следующему расчету";
+        this.startDemoMode();
+      }, 3000);
     }
   }
 

@@ -22,6 +22,7 @@ from calculator import calculate_basic_G, analyze_experiment
 from graph import save_torsion_curve
 from report_docx import generate_docx
 from db_manager import init_db, insert_result, get_results
+from examples import get_all_examples, validate_result, EXPERIMENT_DATA_EXAMPLES
 
 app = Flask(__name__)
 CORS(app)
@@ -195,6 +196,43 @@ def get_database():
                 'timestamp': row[7]
             })
         return jsonify({'success': True, 'data': data})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/examples')
+def get_examples():
+    """API для получения примеров расчетов"""
+    try:
+        examples = get_all_examples()
+        examples_list = []
+        for name, example in examples.items():
+            examples_list.append({
+                'name': name,
+                'material': example['material'],
+                'length': example['length'],
+                'diameter': example['diameter'],
+                'moment': example['moment'],
+                'angle': example['angle'],
+                'description': example['description'],
+                'expected_G_eff': example['expected_G_eff']
+            })
+        return jsonify({'success': True, 'examples': examples_list})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/validate', methods=['POST'])
+def validate_calculation():
+    """API для валидации результатов расчета"""
+    try:
+        data = request.json
+        material = data['material']
+        calculated_G = float(data['G_eff'])
+        
+        validation = validate_result(material, calculated_G)
+        return jsonify({
+            'success': True,
+            'validation': validation
+        })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 

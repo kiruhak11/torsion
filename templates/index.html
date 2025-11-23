@@ -428,6 +428,13 @@
                 >
                   Сброс
                 </button>
+                <button
+                  type="button"
+                  class="btn btn-success"
+                  onclick="showExamplesModal()"
+                >
+                  📚 Загрузить пример
+                </button>
               </div>
             </div>
           </div>
@@ -1091,6 +1098,134 @@
         loadDatabase();
         // Инициализация анимации
         initTorsionAnimation("animationCanvas");
+      });
+
+      // Функции для работы с примерами
+      let examplesData = [];
+
+      async function loadExamples() {
+        try {
+          const response = await fetch("/api/examples");
+          const result = await response.json();
+          if (result.success) {
+            examplesData = result.examples;
+          }
+        } catch (error) {
+          console.error("Ошибка загрузки примеров:", error);
+        }
+      }
+
+      function showExamplesModal() {
+        if (examplesData.length === 0) {
+          loadExamples().then(() => displayExamplesModal());
+        } else {
+          displayExamplesModal();
+        }
+      }
+
+      function displayExamplesModal() {
+        const modal = document.createElement("div");
+        modal.id = "examplesModal";
+        modal.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.7);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 1000;
+        `;
+
+        let examplesHTML = `
+          <div style="background: white; border-radius: 15px; padding: 30px; max-width: 700px; max-height: 80vh; overflow-y: auto;">
+            <h2 style="margin-bottom: 20px; color: #2c3e50;">📚 Выберите пример расчета</h2>
+            <div style="display: grid; gap: 15px;">
+        `;
+
+        examplesData.forEach((example, index) => {
+          examplesHTML += `
+            <div class="example-card" onclick="loadExample(${index})" style="
+              padding: 15px;
+              border: 2px solid #e1e5e9;
+              border-radius: 10px;
+              cursor: pointer;
+              transition: all 0.3s;
+            " onmouseover="this.style.borderColor='#3498db'; this.style.backgroundColor='#f8f9fa';"
+               onmouseout="this.style.borderColor='#e1e5e9'; this.style.backgroundColor='white';">
+              <h4 style="color: #3498db; margin-bottom: 10px;">${example.name}</h4>
+              <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 10px;">${example.description}</p>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
+                <div><strong>Материал:</strong> ${example.material}</div>
+                <div><strong>L:</strong> ${example.length} мм</div>
+                <div><strong>d:</strong> ${example.diameter} мм</div>
+                <div><strong>M:</strong> ${example.moment} Н·мм</div>
+                <div><strong>θ:</strong> ${example.angle}°</div>
+                <div><strong>Ожидаемый G:</strong> ${example.expected_G_eff} МПа</div>
+              </div>
+            </div>
+          `;
+        });
+
+        examplesHTML += `
+            </div>
+            <button onclick="closeExamplesModal()" class="btn btn-secondary" style="margin-top: 20px; width: 100%;">
+              Закрыть
+            </button>
+          </div>
+        `;
+
+        modal.innerHTML = examplesHTML;
+        document.body.appendChild(modal);
+      }
+
+      function closeExamplesModal() {
+        const modal = document.getElementById("examplesModal");
+        if (modal) {
+          modal.remove();
+        }
+      }
+
+      function loadExample(index) {
+        const example = examplesData[index];
+
+        // Заполняем форму
+        document.getElementById("material").value = example.material;
+        document.getElementById("length").value = example.length;
+        document.getElementById("diameter").value = example.diameter;
+        document.getElementById("moment").value = example.moment;
+        document.getElementById("angle").value = example.angle;
+
+        // Закрываем модальное окно
+        closeExamplesModal();
+
+        // Показываем уведомление
+        const notification = document.createElement("div");
+        notification.className = "alert alert-success";
+        notification.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          z-index: 2000;
+          animation: slideIn 0.5s ease-out;
+        `;
+        notification.innerHTML = `
+          ✅ Загружен пример: <strong>${example.name}</strong><br>
+          <small>Нажмите "Рассчитать" для выполнения расчета</small>
+        `;
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+          notification.style.animation = "slideOut 0.5s ease-out";
+          setTimeout(() => notification.remove(), 500);
+        }, 3000);
+      }
+
+      // Загрузить примеры при загрузке страницы
+      document.addEventListener("DOMContentLoaded", function () {
+        loadExamples();
       });
     </script>
     <script src="/static/torsion_animation.js"></script>
