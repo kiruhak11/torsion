@@ -1,255 +1,76 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Веб-приложение для лабораторной работы №4
-Определение модуля упругости второго рода при кручении
-Авторы: Коваленко Кирилл, Артем Иокерс, группа ИН-31
+Flask веб-приложение для лабораторной работы по кручению.
+Предоставляет веб-интерфейс и REST API для расчетов.
+
+Авторы: Коваленко К., Иокерс А.
+Группа: ИН-31
 """
 
-from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for, send_from_directory
-from flask_cors import CORS
-import os
+from flask import Flask, render_template, request, jsonify, send_file
 import json
+import os
+import matplotlib
+matplotlib.use('Agg')  # Для работы без GUI
+import matplotlib.pyplot as plt
+import numpy as np
+from io import BytesIO
 import base64
-import io
-import webbrowser
-import threading
-import time
-from datetime import datetime
-import tempfile
 
-from calculator import calculate_basic_G, analyze_experiment
-from graph import save_torsion_curve
-from report_docx import generate_docx
-from db_manager import init_db, insert_result, get_results
-from examples import get_all_examples, validate_result, EXPERIMENT_DATA_EXAMPLES
+from core.calculator import TorsionCalculator, determine_failure_type
+from core.database import DatabaseManager
+from core.report_generator import ReportGenerator
+
 
 app = Flask(__name__)
-CORS(app)
+app.config['SECRET_KEY'] = 'torsion-lab-secret-key-2025'
 
-# Свойства материалов
-material_properties = {
-    "Сталь": {"k": 1.0, "elastic_limit": 15, "failure_angle": 30},
-    "Чугун": {"k": 0.95, "elastic_limit": 10, "failure_angle": 20},
-    "Дерево": {"k": 0.80, "elastic_limit": 8, "failure_angle": 16}
-}
+# Инициализация БД
+db = DatabaseManager()
 
-# Инициализация базы данных
-init_db()
 
 @app.route('/')
 def index():
-    """Главная страница"""
-    return render_template('index.html', 
-                         materials=list(material_properties.keys()),
-                         student_info="Коваленко Кирилл, Артем Иокерс, группа ИН-31")
+    """Главная страница."""
+    return render_template('index.html')
 
-@app.route('/static/<path:filename>')
-def static_files(filename):
-    """Обслуживание статических файлов"""
-    return send_from_directory('static', filename)
 
 @app.route('/api/calculate', methods=['POST'])
 def calculate():
-    """API для расчета модуля упругости"""
+    """
+    API endpoint для выполнения расчета.
+    Принимает JSON с параметрами эксперимента.
+    """
     try:
         data = request.json
-        material = data['material']
-        L = float(data['length'])
-        diameter = float(data['diameter'])
-        moment = float(data['moment'])
-        angle_input = float(data['angle'])
         
-        # Валидация входных данных
-        if L <= 0 or diameter <= 0 or moment <= 0 or angle_input <= 0:
-            return jsonify({
-                'success': False, 
-                'error': 'Все значения должны быть положительными и угол ≠ 0.'
-            })
+        # Извлечение параметров
+        material = data.get('material', 'Сталь')
+        diameter = float(data.get('diameter', 10.0)) / 1000  # мм -> м
+        length = float(data.get('length', 200.0)) / 1000  # мм -> м
+        max_moment = float(data.get('max_moment', 100.0))
+        num_points = int(data.get('num_points', 50))
         
-        props = material_properties.get(material)
-        if not props:
-            return jsonify({
-                'success': False, 
-                'error': 'Неизвестный материал.'
-            })
-            
-        k = props["k"]
-        elastic_limit = props["elastic_limit"]
-        failure_angle = props["failure_angle"]
+        # Создание калькулятора
+        calculator = TorsionCalculator(diameter, length, material)
         
-        # Ограничение угла до угла разрушения
-        effective_angle = min(angle_input, failure_angle)
+        # Генерация данных с реалистичной погрешностью
+        diagram_data = calculator.generate_diagram_data(
+            max_moment, 
+            num_points,
+            add_experimental_noise=True,  # Добавляем экспериментальную погрешность!
+            error_percent=2.0  # 2% погрешность
+        )
         
-        # Расчет модуля упругости
-        if effective_angle <= elastic_limit:
-            G_baseline = calculate_basic_G(moment, L, diameter, effective_angle)
-        else:
-            G0 = calculate_basic_G(moment, L, diameter, elastic_limit)
-            if G0:
-                G_baseline = G0 * ((failure_angle - effective_angle) / (failure_angle - elastic_limit))
-                G_baseline = max(0, G_baseline)
-            else:
-                G_baseline = 0
+        # Обработка ЭКСПЕРИМЕНТАЛЬНЫХ данных (с погрешностью)
+        results = calculator.process_experiment_data(
+            diagram_data['T'],
+            diagram_data['phi']
+        )
         
-        G_eff = round(k * G_baseline, 2) if G_baseline else 0
-        
-        # Создание графика и кодирование в base64
-        graph_data = generate_graph_base64(L, diameter, moment, elastic_limit, failure_angle, k, effective_angle)
-        
-        # Сохранение в базу данных
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        insert_result(material, L, diameter, moment, angle_input, G_eff, current_time)
-        
-        result = {
-            'success': True,
-            'G_eff': G_eff,
-            'G_baseline': round(G_baseline, 2),
-            'effective_angle': effective_angle,
-            'elastic_limit': elastic_limit,
-            'failure_angle': failure_angle,
-            'material': material,
-            'graph': graph_data,
-            'warning': f"Угол ({angle_input}°) превышает предел эластичности ({elastic_limit}°). Применяется модель пластичности." if angle_input > elastic_limit else None
-        }
-        
-        return jsonify(result)
-        
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': f'Ошибка при расчете: {str(e)}'
-        })
-
-def generate_graph_base64(L, diameter, moment, elastic_limit, failure_angle, k, display_angle):
-    """Генерирует график и возвращает его в формате base64"""
-    import matplotlib
-    matplotlib.use('Agg')  # Backend без GUI
-    import matplotlib.pyplot as plt
-    import numpy as np
-    
-    # Создание массива углов
-    angles = np.linspace(0.1, min(display_angle * 1.2, failure_angle), 100)
-    G_values = []
-    
-    for angle in angles:
-        if angle <= elastic_limit:
-            G_baseline = calculate_basic_G(moment, L, diameter, angle)
-            G_eff = k * G_baseline if G_baseline else 0
-        elif angle <= failure_angle:
-            G0 = calculate_basic_G(moment, L, diameter, elastic_limit)
-            if G0:
-                G_baseline = G0 * ((failure_angle - angle) / (failure_angle - elastic_limit))
-                G_eff = k * max(0, G_baseline)
-            else:
-                G_eff = 0
-        else:
-            G_eff = 0
-        
-        G_values.append(G_eff)
-    
-    # Создание графика
-    fig, ax = plt.subplots(figsize=(10, 6), dpi=100)
-    ax.plot(angles, G_values, linewidth=3, color='darkblue', label='G_eff(θ)')
-    ax.axvline(x=elastic_limit, color='orange', linestyle='--', alpha=0.8, linewidth=2, 
-               label=f'Предел эластичности ({elastic_limit}°)')
-    ax.axvline(x=failure_angle, color='red', linestyle='--', alpha=0.8, linewidth=2, 
-               label=f'Угол разрушения ({failure_angle}°)')
-    
-    if display_angle <= failure_angle and len(G_values) > 0:
-        current_G = G_values[np.argmin(np.abs(angles - display_angle))]
-        ax.plot(display_angle, current_G, 'ro', markersize=10, 
-                label=f'Текущая точка ({display_angle:.1f}°, {current_G:.1f} МПа)')
-    
-    ax.set_xlabel('Угол поворота θ (градусы)', fontsize=12)
-    ax.set_ylabel('Эффективный модуль G_eff (МПа)', fontsize=12)
-    ax.set_title('Зависимость эффективного модуля упругости от угла поворота', fontsize=14, pad=20)
-    ax.grid(True, alpha=0.3)
-    ax.legend(fontsize=10)
-    
-    # Конвертация в base64
-    buffer = io.BytesIO()
-    fig.savefig(buffer, format='png', bbox_inches='tight', dpi=150)
-    buffer.seek(0)
-    image_png = buffer.getvalue()
-    buffer.close()
-    plt.close(fig)
-    
-    graphic = base64.b64encode(image_png).decode('utf-8')
-    return graphic
-
-@app.route('/api/database')
-def get_database():
-    """API для получения данных из базы"""
-    try:
-        results = get_results()
-        data = []
-        for row in results:
-            data.append({
-                'id': row[0],
-                'material': row[1],
-                'L': row[2],
-                'diameter': row[3],
-                'moment': row[4],
-                'angle': row[5],
-                'G': row[6],
-                'timestamp': row[7]
-            })
-        return jsonify({'success': True, 'data': data})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
-
-@app.route('/api/examples')
-def get_examples():
-    """API для получения примеров расчетов"""
-    try:
-        examples = get_all_examples()
-        examples_list = []
-        for name, example in examples.items():
-            examples_list.append({
-                'name': name,
-                'material': example['material'],
-                'length': example['length'],
-                'diameter': example['diameter'],
-                'moment': example['moment'],
-                'angle': example['angle'],
-                'description': example['description'],
-                'expected_G_eff': example['expected_G_eff']
-            })
-        return jsonify({'success': True, 'examples': examples_list})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
-
-@app.route('/api/validate', methods=['POST'])
-def validate_calculation():
-    """API для валидации результатов расчета"""
-    try:
-        data = request.json
-        material = data['material']
-        calculated_G = float(data['G_eff'])
-        
-        validation = validate_result(material, calculated_G)
-        return jsonify({
-            'success': True,
-            'validation': validation
-        })
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
-
-@app.route('/api/experiment', methods=['POST'])
-def run_experiment():
-    """API для анализа экспериментальных данных"""
-    try:
-        data = request.json
-        experiment_data = data.get('data', [])  # [(T1, φ1), (T2, φ2), ...]
-        L = float(data.get('L', 100))
-        diameter = float(data.get('diameter', 10))
-        
-        if not experiment_data:
-            return jsonify({'success': False, 'error': 'Нет экспериментальных данных'})
-        
-        # Анализ экспериментальных данных
-        results = analyze_experiment(experiment_data, L, diameter)
+        # Добавление дополнительной информации
+        results['failure_type'] = determine_failure_type(material)
+        results['Jp'] = float(calculator.calc_polar_moment_inertia())
+        results['Wp'] = float(calculator.calc_polar_section_modulus())
         
         return jsonify({
             'success': True,
@@ -257,93 +78,342 @@ def run_experiment():
         })
         
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
 
-@app.route('/api/report', methods=['POST'])
-def generate_report():
-    """API для генерации отчета"""
+
+@app.route('/api/plot/torsion', methods=['POST'])
+def plot_torsion():
+    """
+    Генерация графика диаграммы T-φ.
+    Возвращает изображение в формате base64.
+    """
+    try:
+        data = request.json
+        moments = data.get('moments', [])
+        angles = data.get('angles', [])
+        
+        # Построение графика
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        angles_deg = np.array(angles) * 180 / np.pi
+        ax.plot(angles_deg, moments, 'b-', linewidth=2.5, label='Экспериментальная кривая')
+        ax.scatter(angles_deg, moments, c='red', s=40, alpha=0.6, zorder=5)
+        
+        ax.set_xlabel('Угол закручивания φ, град', fontsize=13, fontweight='bold')
+        ax.set_ylabel('Крутящий момент T, Н·м', fontsize=13, fontweight='bold')
+        ax.set_title('Диаграмма кручения T-φ', fontsize=16, fontweight='bold')
+        ax.grid(True, alpha=0.3, linestyle='--')
+        
+        # Выделение упругой области
+        linear_idx = int(len(moments) * 0.7)
+        if linear_idx > 1:
+            ax.axvspan(0, angles_deg[linear_idx], alpha=0.15, color='green', label='Упругая область')
+            ax.axvline(x=angles_deg[linear_idx], color='orange', linestyle='--', linewidth=2, label='Предел упругости')
+        
+        ax.legend(fontsize=11)
+        plt.tight_layout()
+        
+        # Конвертация в base64
+        buffer = BytesIO()
+        plt.savefig(buffer, format='png', dpi=120, bbox_inches='tight')
+        buffer.seek(0)
+        image_base64 = base64.b64encode(buffer.getvalue()).decode()
+        plt.close()
+        
+        return jsonify({
+            'success': True,
+            'image': f'data:image/png;base64,{image_base64}'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+
+
+@app.route('/api/plot/stress', methods=['POST'])
+def plot_stress():
+    """
+    Генерация графика распределения касательных напряжений.
+    """
     try:
         data = request.json
         
-        # Создание временного файла для графика
-        temp_graph = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
-        temp_graph.close()
+        material = data.get('material', 'Сталь')
+        diameter = float(data.get('diameter', 10.0)) / 1000
+        length = float(data.get('length', 200.0)) / 1000
+        moment = float(data.get('moment', 50.0))
         
-        # Сохранение графика
-        save_torsion_curve(
-            data['L'], data['diameter'], data['moment'],
-            data['elastic_limit'], data['failure_angle'],
-            material_properties[data['material']]['k'],
-            data['effective_angle'], temp_graph.name
-        )
+        calculator = TorsionCalculator(diameter, length, material)
         
-        # Создание временного файла для отчета
-        temp_report = tempfile.NamedTemporaryFile(suffix='.docx', delete=False)
-        temp_report.close()
+        # Построение графика
+        fig, ax = plt.subplots(figsize=(10, 6))
         
-        # Генерация отчета
-        generate_docx(
-            data['material'], data['L'], data['diameter'],
-            data['moment'], data['angle'], data['G_baseline'],
-            data['G_eff'], data['elastic_limit'], data['failure_angle'],
-            temp_graph.name, filename=temp_report.name
-        )
+        rho, tau = calculator.calc_shear_stress_distribution(moment, 50)
+        rho_mm = rho * 1000
+        tau_mpa = tau / 1e6
         
-        # Удаление временного файла графика
-        os.unlink(temp_graph.name)
+        ax.plot(tau_mpa, rho_mm, 'r-', linewidth=3, label='τ(ρ)')
+        ax.fill_betweenx(rho_mm, 0, tau_mpa, alpha=0.3, color='red')
         
-        return send_file(
-            temp_report.name,
-            as_attachment=True,
-            download_name=f"torsion_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx",
-            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        )
+        max_tau = np.max(tau_mpa)
+        max_rho = diameter * 1000 / 2
+        ax.plot([max_tau], [max_rho], 'ro', markersize=12, label=f'τmax = {max_tau:.2f} МПа')
+        
+        ax.set_xlabel('Касательное напряжение τ, МПа', fontsize=13, fontweight='bold')
+        ax.set_ylabel('Радиус ρ, мм', fontsize=13, fontweight='bold')
+        ax.set_title(f'Распределение τ по сечению при T = {moment:.2f} Н·м', fontsize=16, fontweight='bold')
+        ax.grid(True, alpha=0.3, linestyle='--')
+        ax.axhline(y=max_rho, color='k', linestyle='--', linewidth=1.5, label=f'R = {max_rho:.2f} мм')
+        ax.legend(fontsize=11)
+        
+        ax.text(max_tau * 0.5, max_rho * 0.5, 'Линейное\nраспределение',
+               fontsize=12, ha='center',
+               bbox=dict(boxstyle='round', facecolor='yellow', alpha=0.6))
+        
+        plt.tight_layout()
+        
+        # Конвертация в base64
+        buffer = BytesIO()
+        plt.savefig(buffer, format='png', dpi=120, bbox_inches='tight')
+        buffer.seek(0)
+        image_base64 = base64.b64encode(buffer.getvalue()).decode()
+        plt.close()
+        
+        return jsonify({
+            'success': True,
+            'image': f'data:image/png;base64,{image_base64}'
+        })
         
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
 
-def open_browser():
-    """Открывает браузер через 1.5 секунды после запуска сервера"""
-    time.sleep(1.5)
-    # Попробуем разные порты
-    for port in [8080, 8081, 8082]:
-        try:
-            import socket
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            result = sock.connect_ex(('localhost', port))
-            sock.close()
-            if result == 0:  # Порт открыт
-                webbrowser.open(f'http://localhost:{port}')
-                break
-        except:
-            continue
-    else:
-        webbrowser.open('http://localhost:8080')  # По умолчанию
+
+@app.route('/api/experiments', methods=['GET'])
+def get_experiments():
+    """Получение списка всех экспериментов."""
+    try:
+        experiments = db.get_all_experiments()
+        return jsonify({
+            'success': True,
+            'experiments': experiments
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+
+
+@app.route('/api/experiments/<int:exp_id>', methods=['GET'])
+def get_experiment(exp_id):
+    """Получение конкретного эксперимента."""
+    try:
+        experiment = db.get_experiment(exp_id)
+        if experiment:
+            return jsonify({
+                'success': True,
+                'experiment': experiment
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Эксперимент не найден'
+            }), 404
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+
+
+@app.route('/api/experiments', methods=['POST'])
+def save_experiment():
+    """Сохранение эксперимента в БД."""
+    try:
+        data = request.json
+        
+        user_name = data.get('user_name', 'Anonymous')
+        material = data.get('material', 'Сталь')
+        diameter = float(data.get('diameter', 10.0)) / 1000
+        length = float(data.get('length', 200.0)) / 1000
+        input_params = data.get('input_params', {})
+        results = data.get('results', {})
+        
+        exp_id = db.save_experiment(
+            user_name, material, diameter, length,
+            input_params, results
+        )
+        
+        return jsonify({
+            'success': True,
+            'experiment_id': exp_id
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+
+
+@app.route('/api/test', methods=['POST'])
+def check_test():
+    """Проверка ответов теста."""
+    try:
+        data = request.json
+        answers = data.get('answers', {})
+        user_name = data.get('user_name', 'Anonymous')
+        
+        # Правильные ответы
+        correct_answers = [0, 2, 1, 1, 2, 0, 2, 2]
+        
+        score = 0
+        for i, correct in enumerate(correct_answers):
+            if str(i) in answers and answers[str(i)] == correct:
+                score += 1
+        
+        # Сохранение результата
+        db.save_test_result(user_name, score, answers)
+        
+        percentage = (score / 8) * 100
+        
+        if percentage >= 75:
+            grade = "Отлично!"
+        elif percentage >= 60:
+            grade = "Хорошо!"
+        elif percentage >= 50:
+            grade = "Удовлетворительно"
+        else:
+            grade = "Неудовлетворительно"
+        
+        return jsonify({
+            'success': True,
+            'score': score,
+            'total': 8,
+            'percentage': percentage,
+            'grade': grade
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+
+
+@app.route('/api/report/generate', methods=['POST'])
+def generate_report():
+    """Генерация отчета в формате .docx."""
+    try:
+        data = request.json
+        
+        user_name = data.get('user_name', 'Пользователь')
+        group = data.get('group', 'ИН-31')
+        material = data.get('material', 'Сталь')
+        diameter = float(data.get('diameter', 10.0)) / 1000
+        length = float(data.get('length', 200.0)) / 1000
+        results = data.get('results', {})
+        
+        calculator = TorsionCalculator(diameter, length, material)
+        
+        # Генерация временных графиков
+        diagram_path = 'temp_web_diagram.png'
+        stress_path = 'temp_web_stress.png'
+        
+        # График T-φ
+        if 'moments' in results and 'angles' in results:
+            fig, ax = plt.subplots(figsize=(8, 6))
+            angles_deg = np.array(results['angles']) * 180 / np.pi
+            ax.plot(angles_deg, results['moments'], 'b-', linewidth=2)
+            ax.scatter(angles_deg, results['moments'], c='red', s=30, alpha=0.6)
+            ax.set_xlabel('Угол закручивания φ, град', fontsize=12)
+            ax.set_ylabel('Крутящий момент T, Н·м', fontsize=12)
+            ax.set_title('Диаграмма кручения T-φ', fontsize=14, fontweight='bold')
+            ax.grid(True, alpha=0.3)
+            plt.tight_layout()
+            plt.savefig(diagram_path, dpi=150)
+            plt.close()
+        
+        # График распределения напряжений
+        if 'T_max' in results:
+            fig, ax = plt.subplots(figsize=(8, 6))
+            rho, tau = calculator.calc_shear_stress_distribution(results['T_max'], 50)
+            ax.plot(tau/1e6, rho*1000, 'r-', linewidth=2)
+            ax.fill_betweenx(rho*1000, 0, tau/1e6, alpha=0.3, color='red')
+            ax.set_xlabel('Касательное напряжение τ, МПа', fontsize=12)
+            ax.set_ylabel('Радиус ρ, мм', fontsize=12)
+            ax.set_title('Распределение τ по сечению', fontsize=14, fontweight='bold')
+            ax.grid(True, alpha=0.3)
+            plt.tight_layout()
+            plt.savefig(stress_path, dpi=150)
+            plt.close()
+        
+        # Генерация отчета
+        report_gen = ReportGenerator()
+        filename = report_gen.generate_experiment_report(
+            user_name, group, calculator, results,
+            diagram_path if os.path.exists(diagram_path) else None,
+            stress_path if os.path.exists(stress_path) else None
+        )
+        
+        # Очистка временных файлов
+        for path in [diagram_path, stress_path]:
+            try:
+                if os.path.exists(path):
+                    os.remove(path)
+            except:
+                pass
+        
+        return jsonify({
+            'success': True,
+            'filename': filename
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+
+
+@app.errorhandler(404)
+def not_found(error):
+    """Обработка 404 ошибки."""
+    return jsonify({'error': 'Not found'}), 404
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Обработка 500 ошибки."""
+    return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/animation/sample', methods=['GET'])
+def sample_animation():
+    """Отдача базовой GIF-анимации для веб-интерфейса."""
+    gif_path = os.path.join(app.root_path, 'torsion_animation.gif')
+    if os.path.exists(gif_path):
+        return send_file(gif_path, mimetype='image/gif')
+    return jsonify({'error': 'Анимация не найдена'}), 404
+
 
 if __name__ == '__main__':
-    # Создание директории для шаблонов
-    os.makedirs('templates', exist_ok=True)
-    os.makedirs('static', exist_ok=True)
+    print("="*70)
+    print("  FLASK ВЕБ-ПРИЛОЖЕНИЕ: ЛАБОРАТОРНАЯ РАБОТА ПО КРУЧЕНИЮ")
+    print("="*70)
+    print("  Авторы: Коваленко Кирилл, Иокерс Артем")
+    print("  Группа: ИН-31")
+    print("="*70)
+    print("\n🌐 Запуск веб-сервера...")
+    print("📍 Адрес: http://localhost:5001")
+    print("\n")
     
-    print("=" * 60)
-    print("Лабораторная работа №4")
-    print("Определение модуля упругости второго рода при кручении")
-    print("Авторы: Коваленко Кирилл, Артем Иокерс, группа ИН-31")
-    print("=" * 60)
-    print("\nЗапуск веб-приложения...")
-    print("Адрес: http://localhost:8080")
-    print("Для остановки нажмите Ctrl+C")
-    print("=" * 60)
-    
-    # Запуск браузера в отдельном потоке
-    threading.Thread(target=open_browser, daemon=True).start()
-    
-    # Запуск Flask приложения
-    try:
-        app.run(debug=False, host='0.0.0.0', port=8080, threaded=True)
-    except OSError as e:
-        if "Address already in use" in str(e):
-            print(f"\nПорт 8080 уже используется. Пробую порт 8081...")
-            app.run(debug=False, host='0.0.0.0', port=8081, threaded=True)
-        else:
-            raise e
+    app.run(debug=True, host='0.0.0.0', port=5001)
